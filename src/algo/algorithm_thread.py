@@ -7,16 +7,20 @@ class AlgorithmThread(QThread):
     finished_signal = pyqtSignal(list)
     time_elapsed_signal = pyqtSignal(float)  # Signal pour le temps écoulé
 
-    def __init__(self, graph, N1, N2):
+    total_length_signal = pyqtSignal(float)  # Ajout d'un signal pour la longueur totale
+    conductivity_updated = pyqtSignal(dict)
+
+    def __init__(self, graph, N1, N2, numIterations):
         super().__init__()
         self.G = graph
         self.N1 = N1
         self.N2 = N2
+        self.numIterations = numIterations
 
     def run(self):
         start_time = time.perf_counter()  # Démarrer le compteur
         cnt = 0
-        while cnt < 50:
+        while cnt < self.numIterations:
             P = solve_linear_equation(self.G, self.N1, self.N2)
 
             # Mettre à jour les flux sur les arêtes en fonction des pressions calculées
@@ -27,6 +31,10 @@ class AlgorithmThread(QThread):
 
             print("count=", cnt)
             self.count_updated.emit(cnt)
+
+            current_conductivities = {edge: self.G[edge[0]][edge[1]]['conductivity'] for edge in self.G.edges()}
+            self.conductivity_updated.emit(current_conductivities)  # Émettre les conductivités actuelles
+
             cnt += 1
 
         # Liste pour stocker les arêtes avec leur Dij
@@ -46,6 +54,9 @@ class AlgorithmThread(QThread):
 
         selected_edges = create_path2(top_10_Dij, self.N1, self.N2)
 
+        # Calculer la longueur totale du chemin trouvé
+        total_length = sum(self.G[edge[0]][edge[1]]['length'] for edge in selected_edges)
+
         # Afficher les résultats
         for edge in selected_edges:
             print(f"Arête entre {edge[0]} et {edge[1]}, Dij = {self.G[edge[0]][edge[1]]['conductivity']}")
@@ -61,6 +72,7 @@ class AlgorithmThread(QThread):
         end_time = time.perf_counter()  # Arrêter le compteur
         elapsed_time = end_time - start_time  # Calculer le temps écoulé
         print(f"L'algorithme a pris {elapsed_time:.2f} secondes.")
+        print(f"Longueur totale du chemin trouvé : {total_length}")
 
 
         self.time_elapsed_signal.emit(elapsed_time)  # Émettre le signal avec le temps écoulé
@@ -68,3 +80,5 @@ class AlgorithmThread(QThread):
 
 
         self.finished_signal.emit(selected_edges)
+
+
