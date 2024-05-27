@@ -24,5 +24,5 @@ If the user wants to run the Dijkstra agorithm, simply press the Dijkstra button
 result of the shortest path will appear in blue. If the user wants to see the details of these
 runs, they can go to the following file: experiments/results.csv. Finally the user has the
 choice to start running the algorithms again by pressing the clear button and choosing 2
-other nodes to test
+other nodes to test.
 
