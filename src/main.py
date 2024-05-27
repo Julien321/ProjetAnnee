@@ -4,6 +4,7 @@ from graph.graph_view import GraphView
 
 
 
+
 def main():
 
     app = QApplication(sys.argv)

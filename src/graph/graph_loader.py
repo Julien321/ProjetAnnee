@@ -4,6 +4,9 @@ import random
 
 
 def load_graph(file_path):
+    # Définir un seed
+    seed = 42
+    random.seed(seed)
     with open(file_path, 'r') as f:
         data = json.load(f)
 

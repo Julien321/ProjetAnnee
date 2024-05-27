@@ -1,6 +1,9 @@
 from PyQt5.QtCore import QThread, pyqtSignal
 from src.algo.physarum_polycephalum import *
 import time
+import matplotlib.pyplot as plt
+from src.algo.experiment import save_experiment_result
+
 
 class AlgorithmThread(QThread):
     count_updated = pyqtSignal(int)
@@ -17,6 +20,7 @@ class AlgorithmThread(QThread):
         self.N2 = N2
         self.numIterations = numIterations
 
+
     def run(self):
         start_time = time.perf_counter()  # Démarrer le compteur
         cnt = 0
@@ -29,7 +33,6 @@ class AlgorithmThread(QThread):
             # Après avoir calculé les pressions et mis à jour les flux, mettez à jour les conductivités
             update_conductivities(self.G, P, self.N1, self.N2)
 
-            print("count=", cnt)
             self.count_updated.emit(cnt)
 
             current_conductivities = {edge: self.G[edge[0]][edge[1]]['conductivity'] for edge in self.G.edges()}
@@ -37,6 +40,8 @@ class AlgorithmThread(QThread):
 
             cnt += 1
 
+        print(current_conductivities)
+        end_time = time.perf_counter()  # Arrêter le compteur
         # Liste pour stocker les arêtes avec leur Dij
         edges_with_Dij = []
 
@@ -69,16 +74,21 @@ class AlgorithmThread(QThread):
 
         print(list_of_nodes)
         #time
-        end_time = time.perf_counter()  # Arrêter le compteur
         elapsed_time = end_time - start_time  # Calculer le temps écoulé
         print(f"L'algorithme a pris {elapsed_time:.2f} secondes.")
         print(f"Longueur totale du chemin trouvé : {total_length}")
 
 
+
+
         self.time_elapsed_signal.emit(elapsed_time)  # Émettre le signal avec le temps écoulé
 
-
+        # Enregistrer les résultats dans le fichier CSV
+        save_experiment_result(self.N1, self.N2, elapsed_time, total_length,self.numIterations,algo= "Physarum Polycephalum")
 
         self.finished_signal.emit(selected_edges)
+
+
+
 
 

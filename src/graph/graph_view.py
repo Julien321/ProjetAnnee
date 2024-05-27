@@ -1,4 +1,4 @@
-from PyQt5.QtGui import QPen, QPainter
+from PyQt5.QtGui import QPen, QPainter, QBrush
 from PyQt5.QtCore import Qt
 from src.gui.clickable_node import ClickableNode
 from src.gui.clickable_button import ClickableButton
@@ -12,12 +12,13 @@ from PyQt5.QtWidgets import QLabel
 from PyQt5.QtCore import QTimer
 import networkx as nx
 
+from src.algo.experiment import save_experiment_result
 from PyQt5.QtWidgets import QInputDialog
 
 from PyQt5.QtWidgets import QPushButton
 from PyQt5.QtGui import QColor
 
-
+import random
 import time
 
 
@@ -30,6 +31,8 @@ class GraphView(QGraphicsView):
         self.setRenderHints(QPainter.Antialiasing)
 
         self.G = None
+        self.node_items = []
+        self.selected_nodes = []
         self.init_graph_view()
 
         self.zoomInFactor = 1.25
@@ -37,7 +40,7 @@ class GraphView(QGraphicsView):
         self.zoomRange = [0, 10]
         self.zoomLevel = 0
 
-        self.selected_nodes = []
+
         self.setDragMode(QGraphicsView.ScrollHandDrag)
 
         self._isPanning = False
@@ -64,17 +67,11 @@ class GraphView(QGraphicsView):
         self.count_label.setGeometry(10, 10, 50, 30)
         self.count_label.setStyleSheet("color: red; font-size: 16pt;")
 
-        """
-        #time
-        self.time_label = QLabel(self)
-        self.time_label.setGeometry(10, 10, 500, 300)  # Positionnez et redimensionnez selon vos besoins
-        self.time_label.setStyleSheet("color: red; font-size: 16pt;")  # Mettre le texte en rouge
+        # Nouveau bouton pour sélectionner 2 nœuds aléatoires
+        self.random_nodes_button = QPushButton('2 random nodes', self)
+        self.random_nodes_button.clicked.connect(self.select_random_nodes)
+        self.random_nodes_button.setGeometry(self.viewport().width() - 130, self.viewport().height() - 150, 130, 30)
 
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_time_label)
-
-        self.start_time = None
-        """
 
     def init_graph_view(self):
         self.G = load_graph("data/BRU.json")
@@ -82,12 +79,15 @@ class GraphView(QGraphicsView):
         pen = QPen(Qt.green)
         pen.setWidth(0)
 
+        #Initialisation des noeuds
         for node_id in self.G.nodes():
             node_data = self.G.nodes[node_id]
             node_item = ClickableNode(node_data['x'] * scale, -node_data['y'] * scale, 3, 3, node_id, self)
             node_item.clicked.connect(partial(self.node_clicked, node_id))
             self.scene.addItem(node_item.graphics_item)
+            self.node_items.append(node_item)  # Ajoutez le node_item à la liste
 
+        # Initialisation des arrêtes
         for edge in self.G.edges():
             source_node = self.G.nodes[edge[0]]
             target_node = self.G.nodes[edge[1]]
@@ -98,11 +98,31 @@ class GraphView(QGraphicsView):
 
             self.scene.addItem(line)
 
+    def select_random_nodes(self):
+        self.clear_graph()
+
+        # Créer un générateur aléatoire local
+        local_random = random.Random()  # Pas de seed défini, donc il génère des nombres aléatoires de manière imprévisible
+
+        # Sélectionner 2 nœuds aléatoires
+        random_nodes = local_random.sample(self.node_items, 2)  # Utilisez la liste node_items pour sélectionner aléatoirement
+        for node_item in random_nodes:
+            node_item.is_selected = True
+            try:
+                node_item.graphics_item.setBrush(QBrush(Qt.red))
+            except Exception as e:
+                print(f"Exception lors de la mise à jour du pinceau : {e}")
+            self.selected_nodes.append(node_item)
+            node_item.graphics_item.update()
+
+        print(f"Selected nodes: {[node.node_id for node in random_nodes]}")
+
     def clear_graph(self):
         # Nettoyer la scène graphique
         self.scene.clear()
 
         # Réinitialiser la liste des noeuds sélectionnés si elle existe
+        self.node_items = []
         self.selected_nodes = []
 
         # Recharger le graphe
@@ -115,6 +135,7 @@ class GraphView(QGraphicsView):
         self.button.setGeometry(self.viewport().width() - 130, self.viewport().height() - 50, 130, 30)
         self.count_label.setGeometry(self.viewport().width() - 110, 10, 100, 30)
         self.dijkstra_button.setGeometry(self.viewport().width() - 130, self.viewport().height() - 100, 130, 30)
+        self.random_nodes_button.setGeometry(self.viewport().width() - 130, self.viewport().height() - 150, 130, 30)
 
     def node_clicked(self, node_id):
         if node_id in self.G:
@@ -153,13 +174,16 @@ class GraphView(QGraphicsView):
             end_node = self.selected_nodes[1].node_id
 
             try:
+                start_time = time.perf_counter()
                 # Spécifiez l'attribut 'length' comme poids pour l'algorithme de Dijkstra
                 path = nx.dijkstra_path(self.G, start_node, end_node, weight='length')
                 length = nx.dijkstra_path_length(self.G, start_node, end_node, weight='length')
+                end_time = time.perf_counter()
                 QMessageBox.information(self, "Résultat Dijkstra", f"Chemin: {path}\nLongueur: {length}")
-
+                elapsed_time = end_time - start_time
                 path_edges = [(path[i], path[i + 1]) for i in range(len(path) - 1)]
                 self.update_edges_display(path_edges=path_edges)  # Passer seulement path_edges
+                save_experiment_result(start_node, end_node, elapsed_time, length, numIterations=None,algo="Dijkstra")
             except Exception as e:
                 QMessageBox.critical(self, "Erreur", f"Une erreur est survenue lors de l'exécution de Dijkstra: {e}")
 
